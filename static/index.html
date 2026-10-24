@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#080c16">
+  <meta name="description" id="meta-description" content="基于 FastAPI 与 WebSocket 的实时公共聊天室">
+  <title>同频 · 实时聊天室</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="ambient ambient-one" aria-hidden="true"></div>
+  <div class="ambient ambient-two" aria-hidden="true"></div>
+
+  <div class="page">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <div>
+          <h1 data-i18n="brand.name">同频</h1>
+          <p data-i18n="brand.tagline">实时聊天室</p>
+        </div>
+      </div>
+
+      <div class="topbar-actions">
+        <button class="language-toggle" type="button" data-language-toggle aria-label="切换到英文" title="切换到英文">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <circle cx="12" cy="12" r="8.5"></circle>
+            <path d="M3.7 12h16.6M12 3.5c2.2 2.4 3.4 5.3 3.4 8.5S14.2 18.1 12 20.5M12 3.5C9.8 5.9 8.6 8.8 8.6 12s1.2 6.1 3.4 8.5"></path>
+          </svg>
+          <span data-language-target>EN</span>
+        </button>
+        <div class="status" id="connection-status" data-state="idle">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="status-text">未连接</span>
+        </div>
+        <button class="button button-ghost" id="leave-button" type="button" data-i18n="action.leave" hidden>离开</button>
+      </div>
+    </header>
+
+    <div class="chat-shell">
+      <aside class="sidebar">
+        <div class="sidebar-heading">
+          <div>
+            <p class="eyebrow" data-i18n="presence.public">公共频道</p>
+            <p class="online-line">
+              <span id="online-count">0</span>
+              <span id="online-suffix" data-i18n="presence.online">人在线</span>
+            </p>
+          </div>
+          <span class="live-mark" aria-hidden="true"></span>
+        </div>
+        <ul class="user-list" id="user-list" data-i18n-aria-label="aria.onlineUsers" aria-label="在线成员">
+          <li class="user-empty" data-i18n="presence.waiting">等待成员加入</li>
+        </ul>
+        <div class="sidebar-footer">
+          <span class="lock-mark" aria-hidden="true"></span>
+          <p data-i18n="sidebar.note">无需注册，即刻开聊</p>
+        </div>
+      </aside>
+
+      <main class="chat-panel">
+        <div class="chat-heading">
+          <div>
+            <p class="eyebrow">CHAT / 01</p>
+            <h2>
+              <span data-i18n="room.title">大厅</span>
+              <span class="room-count" id="room-count">0 人</span>
+            </h2>
+          </div>
+          <p class="typing-indicator" id="typing-indicator" aria-live="polite"></p>
+        </div>
+
+        <div class="message-list" id="message-list" role="log" aria-live="polite" data-i18n-aria-label="aria.messages" aria-label="聊天消息">
+          <div class="empty-state" id="empty-state">
+            <div class="empty-orbit" aria-hidden="true">
+              <span></span>
+            </div>
+            <p data-i18n="empty.disconnected.title">连接后，消息会出现在这里</p>
+            <span data-i18n="empty.disconnected.detail">和世界各地的人，分享此刻。</span>
+          </div>
+        </div>
+
+        <form class="composer" id="composer" autocomplete="off">
+          <div class="composer-box">
+            <textarea id="message-input" rows="1" maxlength="1000" data-i18n-placeholder="composer.placeholder" data-i18n-aria-label="aria.messageInput" placeholder="说点什么…" aria-label="消息内容" disabled></textarea>
+            <button class="send-button" id="send-button" type="submit" data-i18n-aria-label="aria.send" aria-label="发送消息" disabled>
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M4.3 11.4 19.6 4.8c.8-.3 1.6.5 1.3 1.3l-6.6 15.3c-.3.8-1.5.7-1.7-.1l-1.5-5.7-5.7-1.5c-.8-.2-.9-1.4-.1-1.7Z"></path>
+              </svg>
+            </button>
+          </div>
+          <div class="composer-meta">
+            <span data-i18n="composer.hint">Enter 发送 · Shift + Enter 换行</span>
+            <span id="character-count">0 / 1000</span>
+          </div>
+        </form>
+      </main>
+    </div>
+  </div>
+
+  <div class="join-screen" id="join-screen" role="dialog" aria-modal="true" aria-labelledby="join-title">
+    <div class="join-card">
+      <div class="join-glow" aria-hidden="true"></div>
+      <div class="join-top">
+        <div class="join-brand">
+          <div class="brand-mark brand-mark-large" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <span data-i18n="brand.name">同频</span>
+        </div>
+        <button class="language-toggle" type="button" data-language-toggle aria-label="切换到英文" title="切换到英文">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <circle cx="12" cy="12" r="8.5"></circle>
+            <path d="M3.7 12h16.6M12 3.5c2.2 2.4 3.4 5.3 3.4 8.5S14.2 18.1 12 20.5M12 3.5C9.8 5.9 8.6 8.8 8.6 12s1.2 6.1 3.4 8.5"></path>
+          </svg>
+          <span data-language-target>EN</span>
+        </button>
+      </div>
+      <h2 id="join-title" data-i18n="join.title">进入公共聊天室</h2>
+      <p class="join-copy" data-i18n="join.copy">取一个昵称，开始和世界各地的人实时聊天。你的消息会即时送达所有在线成员。</p>
+      <form id="join-form" autocomplete="off">
+        <label for="name-input" data-i18n="join.nameLabel">你的昵称</label>
+        <input id="name-input" name="name" type="text" maxlength="24" data-i18n-placeholder="join.namePlaceholder" placeholder="例如：夜航星" autocomplete="nickname" required>
+        <p class="form-error" id="join-error" role="alert"></p>
+        <button class="button button-primary" id="join-button" type="submit">
+          <span id="join-button-text">加入聊天室</span>
+          <span class="button-arrow" aria-hidden="true">→</span>
+        </button>
+      </form>
+      <p class="join-note" data-i18n="join.note">公开频道 · 请勿分享敏感信息</p>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <template id="message-template">
+    <article class="message">
+      <div class="avatar" aria-hidden="true"><span></span></div>
+      <div class="message-content">
+        <div class="message-meta">
+          <span class="message-author"></span>
+          <time></time>
+        </div>
+        <div class="message-bubble"></div>
+      </div>
+    </article>
+  </template>
+
+  <script src="/static/app.js" defer></script>
+</body>
+</html>
